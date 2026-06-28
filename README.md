@@ -1,0 +1,111 @@
+# hf-gguf-finder
+
+Find GGUF model files on Hugging Face Hub from the command line.
+
+## Why this tool?
+
+LLM inference engines like [llama.cpp](https://github.com/ggerganov/llama.cpp), [Ollama](https://ollama.com), and [LM Studio](https://lmstudio.ai) use GGUF format for quantized models. Hugging Face hosts thousands of GGUF files across hundreds of repositories, but finding them usually means browsing the website manually or digging through API responses.
+
+This CLI tool queries the Hugging Face API directly and gives you **download URLs** for every GGUF file matching your search — in plain text or structured JSON.
+
+```
+$ hf-gguf-finder -q deepseek-coder -limit 5
+https://huggingface.co/deepseek-ai/deepseek-coder-6.7b-instruct-GGUF/resolve/main/deepseek-coder-6.7b-instruct.Q4_K_M.gguf
+https://huggingface.co/deepseek-ai/deepseek-coder-6.7b-instruct-GGUF/resolve/main/deepseek-coder-6.7b-instruct.Q5_K_M.gguf
+...
+```
+
+## Installation
+
+```bash
+# Clone and build
+git clone git@github.com:jeanmachuca/hf-gguf-finder.git
+cd hf-gguf-finder
+go build -o hf-gguf-finder
+
+# (Optional) move to PATH
+mv hf-gguf-finder /usr/local/bin/
+```
+
+Or run directly without building:
+
+```bash
+go run main.go -q llama
+```
+
+## Usage
+
+```
+hf-gguf-finder -q <query> [-limit <n>] [-json]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-q`  | (required) | Search query — searches model names and descriptions on Hugging Face |
+| `-limit` | `20` | Maximum number of models to return |
+| `-json` | `false` | Output results as structured JSON instead of plain text |
+
+### Examples
+
+**Basic search — plain text URLs:**
+```bash
+hf-gguf-finder -q llama
+```
+
+**Search with multi-word query and custom limit:**
+```bash
+hf-gguf-finder -q "deepseek coder" -limit 50
+```
+
+**JSON output:**
+```bash
+hf-gguf-finder -q phi -json
+```
+
+**JSON output with custom limit:**
+```bash
+hf-gguf-finder -q "mistral 7b" -limit 10 -json
+```
+
+### Output formats
+
+#### Plain text (default)
+Each GGUF file's download URL is printed on a separate line:
+
+```
+https://huggingface.co/org/model/resolve/main/file.Q4_K_M.gguf
+https://huggingface.co/org/model/resolve/main/file.Q5_K_M.gguf
+https://huggingface.co/org/model/resolve/main/file.Q8_0.gguf
+```
+
+#### JSON (`-json`)
+Structured output grouped by model:
+
+```json
+{
+  "query": "phi",
+  "limit": 5,
+  "results": [
+    {
+      "modelId": "microsoft/Phi-3-mini-4k-instruct-gguf",
+      "modelName": "microsoft/Phi-3-mini-4k-instruct-gguf",
+      "files": [
+        "https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf/resolve/main/Phi-3-mini-4k-instruct.Q4_K_M.gguf",
+        "https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf/resolve/main/Phi-3-mini-4k-instruct.Q8_0.gguf"
+      ]
+    }
+  ]
+}
+```
+
+## How it works
+
+1. Sends a request to `https://huggingface.co/api/models` with `library=gguf`, your search query, and a sort by downloads.
+2. Decodes the JSON response.
+3. Filters sibling files to those ending in `.gguf`.
+4. Constructs download URLs in the format `https://huggingface.co/{modelId}/resolve/main/{filename}`.
+5. Prints URLs (plain text) or a structured JSON object.
+
+## License
+
+MIT

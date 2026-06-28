@@ -1,0 +1,13 @@
+# Binary
+/hf-gguf-finder
+/hf-gguf-finder.exe
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
