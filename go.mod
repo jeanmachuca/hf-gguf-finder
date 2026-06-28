@@ -1,3 +1,3 @@
-module github.com/jeanmachuca/hf-gguf-finder
+module github.com/gguf-run/finder
 
 go 1.22
