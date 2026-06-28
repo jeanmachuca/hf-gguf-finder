@@ -1,6 +1,8 @@
 # Binary
 /hf-gguf-finder
 /hf-gguf-finder.exe
+/gguf-run
+/gguf-run.exe
 
 # IDE
 .idea/

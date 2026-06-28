@@ -13,8 +13,8 @@ Installation:
 Tutorial:
   TUTORIAL.md — step-by-step guide for finding edge-device models
 
-Companion script:
-  gguf-run — search + download + run with llama.cpp in one command
+Companion tool:
+  cmd/gguf-run/ — search + download + run with llama.cpp in one command
 
 Flags:
   -q <query>      Search query (required).  Example: "llama", "deepseek coder"

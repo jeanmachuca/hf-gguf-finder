@@ -68,35 +68,47 @@ devices (Raspberry Pi, phones, laptops), see:
 
 ➡️ **[TUTORIAL.md](TUTORIAL.md)**
 
-## Quick run: gguf-run wrapper
+## Quick run: gguf-run
 
-`gguf-run` is a companion script that ties everything together:
+`gguf-run` is a companion tool that ties everything together:
 **search → download → run** with [llama.cpp](https://github.com/ggerganov/llama.cpp)
 in one command.
+
+### Install
+
+```bash
+# From source
+go build -o gguf-run ./cmd/gguf-run/
+sudo mv gguf-run /usr/local/bin/
+```
+
+```bash
+# Or run without installing
+go run ./cmd/gguf-run/ -q tinyllama
+```
+
+### Usage
 
 ```bash
 # Auto-installs llama.cpp if missing, searches for best Q4_K_M file,
 # downloads, and launches an interactive chat
-./gguf-run -q tinyllama
+gguf-run -q tinyllama
 
 # Single-shot prompt
-./gguf-run -q qwen2.5-1.5b -p "What is the capital of France?"
+gguf-run -q qwen2.5-1.5b -p "What is the capital of France?"
 
-# Use a local file
-./gguf-run -m ~/models/my-model.q4_k_m.gguf
+# Use a local file or URL
+gguf-run -m ~/models/my-model.q4_k_m.gguf
+gguf-run -m https://huggingface.co/org/model/resolve/main/file.gguf
 
-# Pass extra llama.cpp flags
-./gguf-run -q phi -- --temp 0.8 --ctx-size 4096 -ngl 999
+# Pass extra llama.cpp flags (use -- separator)
+gguf-run -q phi -- --temp 0.8 --ctx-size 4096 -ngl 999
 
 # Override cache directory
-./gguf-run -q smollm --cache-dir /ssd/models
+gguf-run -q smollm --cache-dir /ssd/models
 ```
 
 Models are cached in `~/.cache/gguf/` so repeated runs skip the download.
-
-llama.cpp is installed via Homebrew on first run if not found. You can
-also point to an existing installation with the `LLAMACPP_DIR`
-environment variable.
 
 ## Usage
 

@@ -185,9 +185,17 @@ go run main.go -q "stablelm-2-1.6b" -json
 
 ---
 
-## 8. One-command runner: gguf-run
+## 8. One-command runner: gguf-run (Go)
 
-The companion script `gguf-run` automates the full workflow:
+The companion tool `gguf-run` (written in Go) automates the full workflow:
+
+### Build it
+
+```bash
+go build -o gguf-run ./cmd/gguf-run/
+```
+
+### Use it
 
 ```bash
 # Search, download best Q4_K_M, and chat
@@ -196,12 +204,12 @@ The companion script `gguf-run` automates the full workflow:
 # Single prompt, no interaction
 ./gguf-run -q qwen2.5-1.5b -p "Hello!"
 
-# Extra llama.cpp options
+# Extra llama.cpp options (use -- separator)
 ./gguf-run -q phi -- --temp 0.8 -ngl 999
 ```
 
-It auto-installs llama.cpp via Homebrew if missing and caches
-downloaded models in `~/.cache/gguf/`.
+It auto-installs llama.cpp via Homebrew if missing, validates GGUF
+files on download, and caches models in `~/.cache/gguf/`.
 
 ## Next steps
 
