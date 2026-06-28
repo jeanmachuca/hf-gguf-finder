@@ -10,6 +10,12 @@ Use the -json flag to get structured JSON output.
 Installation:
   go install github.com/jeanmachuca/hf-gguf-finder@latest
 
+Tutorial:
+  TUTORIAL.md — step-by-step guide for finding edge-device models
+
+Companion script:
+  gguf-run — search + download + run with llama.cpp in one command
+
 Flags:
   -q <query>      Search query (required).  Example: "llama", "deepseek coder"
   -limit <n>      Max models to return (default 20).

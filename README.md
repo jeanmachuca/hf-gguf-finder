@@ -61,6 +61,43 @@ cd hf-gguf-finder
 go run main.go -q llama
 ```
 
+## Tutorial
+
+For a step-by-step walkthrough focused on finding small models for edge
+devices (Raspberry Pi, phones, laptops), see:
+
+➡️ **[TUTORIAL.md](TUTORIAL.md)**
+
+## Quick run: gguf-run wrapper
+
+`gguf-run` is a companion script that ties everything together:
+**search → download → run** with [llama.cpp](https://github.com/ggerganov/llama.cpp)
+in one command.
+
+```bash
+# Auto-installs llama.cpp if missing, searches for best Q4_K_M file,
+# downloads, and launches an interactive chat
+./gguf-run -q tinyllama
+
+# Single-shot prompt
+./gguf-run -q qwen2.5-1.5b -p "What is the capital of France?"
+
+# Use a local file
+./gguf-run -m ~/models/my-model.q4_k_m.gguf
+
+# Pass extra llama.cpp flags
+./gguf-run -q phi -- --temp 0.8 --ctx-size 4096 -ngl 999
+
+# Override cache directory
+./gguf-run -q smollm --cache-dir /ssd/models
+```
+
+Models are cached in `~/.cache/gguf/` so repeated runs skip the download.
+
+llama.cpp is installed via Homebrew on first run if not found. You can
+also point to an existing installation with the `LLAMACPP_DIR`
+environment variable.
+
 ## Usage
 
 ```

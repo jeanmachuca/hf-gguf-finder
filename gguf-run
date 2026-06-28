@@ -1,0 +1,238 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+NAME="$(basename "$0")"
+CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/gguf"
+LLAMACPP_DIR="${LLAMACPP_DIR:-}"
+MODEL_PATH=""
+SEARCH_QUERY=""
+PROMPT=""
+LLAMA_ARGS=()
+
+# ── colours ──────────────────────────────────────────────
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
+CYAN='\033[0;36m'; BOLD='\033[1m'; RESET='\033[0m'
+info()  { echo -e "${GREEN}==>${RESET} $*"; }
+warn()  { echo -e "${YELLOW}==>${RESET} $*" >&2; }
+err()   { echo -e "${RED}==>${RESET} $*" >&2; }
+
+usage() {
+	cat <<EOF
+Usage: $NAME [options] [model-search-or-path]
+
+Search, download, and run GGUF models with llama.cpp in one go.
+
+Options:
+  -q <query>      Search Hugging Face for a model and auto-select best Q4_K_M file
+  -p <prompt>     Single-shot prompt (default: interactive chat)
+  -m <path/url>   Use a local GGUF file or a direct download URL
+  --cache-dir     Override model cache directory (default: ~/.cache/gguf)
+  -- <args>       Extra arguments passed to llama-cli (e.g. -- --temp 0.7 -ngl 999)
+
+If no -q or -m is given, the first positional argument is treated as a search query.
+
+Examples:
+  $NAME -q tinyllama
+  $NAME -q qwen2.5-1.5b -p "What is the capital of France?"
+  $NAME -m ~/models/my-model.q4_k_m.gguf
+  $NAME -q phi -- --temp 0.8 --ctx-size 4096 -ngl 999
+EOF
+	exit 0
+}
+
+# ── parse flags ──────────────────────────────────────────
+ARGS=()
+while [[ $# -gt 0 ]]; do
+	case "$1" in
+		-h|--help) usage ;;
+		-q) SEARCH_QUERY="$2"; shift 2 ;;
+		-p) PROMPT="$2"; shift 2 ;;
+		-m) MODEL_PATH="$2"; shift 2 ;;
+		--cache-dir) CACHE_DIR="$2"; shift 2 ;;
+		--) shift; LLAMA_ARGS+=("$@"); break ;;
+		-*) err "Unknown flag: $1"; usage ;;
+		*)  ARGS+=("$1"); shift ;;
+	esac
+done
+
+# If no -q or -m, treat positional arg as search query
+if [[ -z "$SEARCH_QUERY" && -z "$MODEL_PATH" && ${#ARGS[@]} -gt 0 ]]; then
+	SEARCH_QUERY="${ARGS[0]}"
+fi
+
+if [[ -z "$SEARCH_QUERY" && -z "$MODEL_PATH" ]]; then
+	err "Provide a search query (-q) or a model path (-m)."
+	usage
+fi
+
+# ── find llama-cli ───────────────────────────────────────
+find_llama() {
+	if [[ -n "${LLAMA_CLI_OVERRIDE:-}" ]]; then
+		echo "$LLAMA_CLI_OVERRIDE"
+		return
+	fi
+	if command -v llama-cli &>/dev/null; then
+		echo "llama-cli"
+		return
+	fi
+	if [[ -n "$LLAMACPP_DIR" && -x "$LLAMACPP_DIR/bin/llama-cli" ]]; then
+		echo "$LLAMACPP_DIR/bin/llama-cli"
+		return
+	fi
+	# brew
+	local brew_prefix
+	brew_prefix="$(brew --prefix llama.cpp 2>/dev/null || true)"
+	if [[ -n "$brew_prefix" && -x "$brew_prefix/bin/llama-cli" ]]; then
+		echo "$brew_prefix/bin/llama-cli"
+		return
+	fi
+	# fallback: try to find it
+	local found
+	found="$(find /usr/local /opt/homebrew -name llama-cli -type f 2>/dev/null | head -1)"
+	if [[ -n "$found" ]]; then
+		echo "$found"
+		return
+	fi
+	echo ""
+}
+
+LLAMA_CLI="$(find_llama)"
+
+ensure_llama() {
+	if [[ -n "$LLAMA_CLI" ]]; then
+		info "Using llama-cli at: $LLAMA_CLI"
+		return
+	fi
+	warn "llama-cli not found. Install it with:"
+	echo "    brew install llama.cpp"
+	echo ""
+	read -r -p "Install llama.cpp now? [Y/n] " REPLY
+	if [[ "$REPLY" =~ ^[Nn] ]]; then
+		err "Aborted."
+		exit 1
+	fi
+	info "Installing llama.cpp..."
+	brew install llama.cpp
+	LLAMA_CLI="$(brew --prefix llama.cpp)/bin/llama-cli"
+	if [[ ! -x "$LLAMA_CLI" ]]; then
+		err "Installation failed or llama-cli not found."
+		exit 1
+	fi
+	info "Installed llama-cli at: $LLAMA_CLI"
+}
+
+# ── find / download model ────────────────────────────────
+resolve_model() {
+	if [[ -n "$MODEL_PATH" ]]; then
+		# direct URL — download
+		if [[ "$MODEL_PATH" =~ ^https?:// ]]; then
+			local fname="${MODEL_PATH##*/}"
+			mkdir -p "$CACHE_DIR"
+			if [[ ! -f "$CACHE_DIR/$fname" ]]; then
+				info "Downloading $fname ..."
+				curl -#L -o "$CACHE_DIR/$fname" "$MODEL_PATH"
+			else
+				info "Using cached: $fname"
+			fi
+			MODEL_PATH="$CACHE_DIR/$fname"
+		elif [[ -f "$MODEL_PATH" ]]; then
+			info "Using local model: $MODEL_PATH"
+		else
+			err "File not found: $MODEL_PATH"
+			exit 1
+		fi
+		return
+	fi
+
+	# search query — use hf-gguf-finder
+	if [[ -z "$SEARCH_QUERY" ]]; then
+		err "No search query or model path provided."
+		exit 1
+	fi
+
+	info "Searching: $SEARCH_QUERY"
+
+	# look for hf-gguf-finder in PATH or sibling dir
+	local FINDER
+	FINDER="$(command -v hf-gguf-finder || echo "")"
+	if [[ -z "$FINDER" ]]; then
+		FINDER="$(dirname "$0")/hf-gguf-finder"
+		if [[ ! -x "$FINDER" ]]; then
+			FINDER="$(dirname "$0")/main.go"
+			if [[ -f "$FINDER" ]]; then
+				FINDER="go run $FINDER"
+			else
+				err "hf-gguf-finder not found. Build it first:"
+				echo "  go build -o hf-gguf-finder"
+				exit 1
+			fi
+		fi
+	fi
+
+	# prefer Q4_K_M quant
+	local json
+	json="$($FINDER -q "$SEARCH_QUERY" -limit 20 -json 2>/dev/null || true)"
+
+	if [[ -z "$json" || "$json" == '{"query":"'*',"limit":20,"results":null}' ]]; then
+		err "No models found for: $SEARCH_QUERY"
+		exit 1
+	fi
+
+	# pick first model that has a Q4_K_M file
+	local url=""
+	url="$(echo "$json" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+for r in data.get('results', []):
+    for f in r.get('files', []):
+        if 'q4_k_m' in f.lower():
+            print(f)
+            sys.exit(0)
+# fallback: first file
+for r in data.get('results', []):
+    for f in r.get('files', []):
+        print(f)
+        sys.exit(0)
+" 2>/dev/null || true)"
+
+	if [[ -z "$url" ]]; then
+		err "Could not extract a download URL."
+		exit 1
+	fi
+
+	info "Selected: $(basename "$url")"
+	MODEL_PATH="$url"
+	resolve_model  # recurse to download
+}
+
+# ── run ──────────────────────────────────────────────────
+run_model() {
+	local model="$1"
+	local cmd=("$LLAMA_CLI" -m "$model")
+
+	if [[ -n "$PROMPT" ]]; then
+		cmd+=(-p "$PROMPT" -n 512)
+	else
+		# interactive chat
+		cmd+=(-i --chat-template)
+	fi
+
+	if [[ ${#LLAMA_ARGS[@]} -gt 0 ]]; then
+		cmd+=("${LLAMA_ARGS[@]}")
+	fi
+
+	echo ""
+	info "Running: ${cmd[*]}"
+	echo ""
+	"${cmd[@]}"
+}
+
+# ── main ─────────────────────────────────────────────────
+main() {
+	mkdir -p "$CACHE_DIR"
+	ensure_llama
+	resolve_model
+	run_model "$MODEL_PATH"
+}
+
+main
