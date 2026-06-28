@@ -211,10 +211,7 @@ run_model() {
 	local cmd=("$LLAMA_CLI" -m "$model")
 
 	if [[ -n "$PROMPT" ]]; then
-		cmd+=(-p "$PROMPT" -n 512)
-	else
-		# interactive chat
-		cmd+=(-i --chat-template)
+		cmd+=(-p "$PROMPT" --single-turn)
 	fi
 
 	if [[ ${#LLAMA_ARGS[@]} -gt 0 ]]; then
