@@ -17,8 +17,29 @@ https://huggingface.co/deepseek-ai/deepseek-coder-6.7b-instruct-GGUF/resolve/mai
 
 ## Installation
 
+### Option 1: Install with Go (recommended)
+
+Requires [Go 1.21+](https://go.dev/dl/).
+
 ```bash
-# Clone and build
+go install github.com/jeanmachuca/hf-gguf-finder@latest
+```
+
+The binary is placed in `$GOPATH/bin` (or `~/go/bin` by default). Make sure it's in your PATH:
+
+```bash
+export PATH=$PATH:$(go env GOPATH)/bin
+```
+
+Then run from anywhere:
+
+```bash
+hf-gguf-finder -q llama
+```
+
+### Option 2: Clone and build
+
+```bash
 git clone git@github.com:jeanmachuca/hf-gguf-finder.git
 cd hf-gguf-finder
 go build -o hf-gguf-finder
@@ -27,9 +48,16 @@ go build -o hf-gguf-finder
 mv hf-gguf-finder /usr/local/bin/
 ```
 
-Or run directly without building:
+### Option 3: Run directly (no install)
 
 ```bash
+go run github.com/jeanmachuca/hf-gguf-finder@latest -q llama
+```
+
+Or from a local clone:
+
+```bash
+cd hf-gguf-finder
 go run main.go -q llama
 ```
 

@@ -7,6 +7,9 @@ Searches the Hugging Face Hub for GGUF format models and prints
 download URLs.  By default output is plain text (one URL per line).
 Use the -json flag to get structured JSON output.
 
+Installation:
+  go install github.com/jeanmachuca/hf-gguf-finder@latest
+
 Flags:
   -q <query>      Search query (required).  Example: "llama", "deepseek coder"
   -limit <n>      Max models to return (default 20).
